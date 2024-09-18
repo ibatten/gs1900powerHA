@@ -15,6 +15,8 @@ import paho.mqtt.publish
 MQTTUSER = "remotesensors"
 MQTTPASS = "remotesensors"
 MQTTAUTH = {"username": MQTTUSER, "password": MQTTPASS}
+MQTTHOST = 'homeassistant***REMOVED***'
+DOMAIN = '.home***REMOVED***'
 SSHUSER = "igb"
 SSHPASS = "***REMOVED***"
 CLIPROMPT = "# "
@@ -70,17 +72,20 @@ def parse(s):
     """split on one or more newlines or equivalent"""
     return newlines.split(s.decode("utf-8"))
 
+
+# pylint: disable=unused-argument,bare-except
 def signal_handler(sig, frame):
-    for (channel, _) in channels.values ():
+    """handle SIGINT and SIGHUP"""
+    for channel, _ in channels.values():
         try:
-            channel.close () 
+            channel.close()
         except:
             pass
-    sys.exit (0)
+    sys.exit(0)
+
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
-
 
 
 def connect_to(host):
@@ -102,7 +107,7 @@ channels = {}
 
 def update_host(host, reportinghost):
     """on host, run the show power inline consumptions and parse the result.  return
-       the messages we are going to need to send"""
+    the messages we are going to need to send"""
     try:
         info = channels[host]
     except KeyError:
@@ -141,12 +146,13 @@ def update_host(host, reportinghost):
 
     return [
         {"topic": f"poe/{reportinghost}/total", "payload": f"{total:.2f}"},
-        # {"topic": f"poe/{reportinghost}/attributes", "payload": json.dumps(linepower)},
+        {"topic": f"poe/{reportinghost}/attributes", "payload": json.dumps(linepower)},
     ]
 
 
 def discovery_records(tidyhostlist):
     """make discovery records for a list of (legal) names"""
+
     def one_record(host):
         """make one discovery record"""
         j = {
@@ -162,20 +168,17 @@ def discovery_records(tidyhostlist):
                 "model": "GS1900-10HP",
                 "identifiers": [host],
             },
-            # "json_attributes_topic": f"poe/${host}/attributes",
+            "json_attributes_topic": f"poe/{host}/attributes",
             # "json_attributes_template": "{{ value_json.data.value | tojson }}",
         }
-        return json.dumps(j)
+        return {
+            "topic": f"homeassistant/sensor/{host}_poe/config",
+            "payload": json.dumps(j),
+        }
 
     # https://community.home-assistant.io/t/mqtt-sensor-add-attributes-while-remaining-in-autodiscovery/578273/5
 
-    discovery = [
-        {
-            "topic": f"homeassistant/sensor/{host}_poe/config",
-            "payload": one_record(host),
-        }
-        for host in tidyhostlist
-    ]
+    discovery = [one_record(host) for host in tidyhostlist]
 
     return discovery
 
@@ -188,7 +191,7 @@ def main(live=False):
     discovery = discovery_records(tidyhosts)
     if live:
         paho.mqtt.publish.multiple(
-            discovery, hostname="homeassistant***REMOVED***", auth=MQTTAUTH
+            discovery, hostname=MQTTHOST, auth=MQTTAUTH
         )
     else:
         print(discovery)
@@ -197,19 +200,20 @@ def main(live=False):
         results = []
         for host, reportinghost in zip(hosts, tidyhosts):
             try:
-                results += update_host(host + ".home***REMOVED***", reportinghost)
+                results += update_host(host + DOMAIN, reportinghost)
             except RuntimeError as e:
                 print(e)
         if results and live:
             paho.mqtt.publish.multiple(
-                results, hostname="homeassistant***REMOVED***", auth=MQTTAUTH
+                results, hostname=MQTTHOST, auth=MQTTAUTH
             )
         else:
             print(results)
-            print(f"published {len(results)} records")
+            # print(f"published {len(results)} records")
         sleep(30)
 
-if len(sys.argv)>1 and sys.argv[1] == 'live':
+
+if len(sys.argv) > 1 and sys.argv[1] == "live":
     main(True)
 else:
     main(False)

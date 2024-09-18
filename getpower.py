@@ -15,8 +15,8 @@ import paho.mqtt.publish
 MQTTUSER = "remotesensors"
 MQTTPASS = "remotesensors"
 MQTTAUTH = {"username": MQTTUSER, "password": MQTTPASS}
-MQTTHOST = 'homeassistant***REMOVED***'
-DOMAIN = '.home***REMOVED***'
+MQTTHOST = "homeassistant***REMOVED***"
+DOMAIN = ".home***REMOVED***"
 SSHUSER = "igb"
 SSHPASS = "***REMOVED***"
 CLIPROMPT = "# "
@@ -88,26 +88,25 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGHUP, signal_handler)
 
 
-def connect_to(host):
+def connect_to(host, sshuser=SSHUSER, sshpass=SSHPASS, cliprompt=CLIPROMPT):
     """connect to host and do initial exchanges to establish the full prompt"""
     child = pexpect.spawn(
-        f"ssh -o StrictHostKeyChecking=accept-new {host} -l {SSHUSER}"
+        f"ssh -o StrictHostKeyChecking=accept-new {host} -l {sshuser}"
     )
     child.expect("password: ")
-    child.sendline(SSHPASS)
-    child.expect(CLIPROMPT)
+    child.sendline(sshpass)
+    child.expect(cliprompt)
     p = parse(child.before)
     m = hostchars.search(p[-1])
-    prompt = (m.group(0))[1:] + CLIPROMPT
+    prompt = (m.group(0))[1:] + cliprompt
     return (child, prompt)
 
 
 channels = {}
 
 
-def update_host(host, reportinghost):
-    """on host, run the show power inline consumptions and parse the result.  return
-    the messages we are going to need to send"""
+def get_output(host, command):
+    """on host, run command and return result as a list of lines"""
     try:
         info = channels[host]
     except KeyError:
@@ -121,12 +120,21 @@ def update_host(host, reportinghost):
         (child, prompt) = info
         child.sendline()
         child.expect(prompt)
-        child.sendline("show power inline consumption")
+        child.sendline(command)
         child.expect(prompt)
         p = parse(child.before)
     except (pexpect.TIMEOUT, pexpect.EOF, TypeError):
         del channels[host]
-        raise RuntimeError(f"comms failure to {host}") from e
+        raise RuntimeError(f"comms failure to {host} running {command}") from e
+
+    return p
+
+
+def update_host(host, reportinghost):
+    """on host, run the show power inline consumptions and parse the result.  return
+    the messages we are going to need to send"""
+
+    p = get_output(host, "show power inline consumption")
 
     total = 0
     linepower = {}
@@ -183,37 +191,35 @@ def discovery_records(tidyhostlist):
     return discovery
 
 
-def main(live=False):
+def main(live=False, hosts=(), domain="", mqtthost="localhost", mqttauth=None):
     """do the heavy lifting"""
-    hosts = [f"gs1900-10hp-{h}" for h in (1, 2, 3)]
+
+    if not hosts:
+        return
+
     tidyhosts = [t.replace("-", "_") for t in hosts]
 
-    discovery = discovery_records(tidyhosts)
-    if live:
-        paho.mqtt.publish.multiple(
-            discovery, hostname=MQTTHOST, auth=MQTTAUTH
-        )
-    else:
-        print(discovery)
+    results = discovery_records(tidyhosts)
 
     while True:
-        results = []
         for host, reportinghost in zip(hosts, tidyhosts):
             try:
-                results += update_host(host + DOMAIN, reportinghost)
+                results += update_host(host + domain, reportinghost)
             except RuntimeError as e:
                 print(e)
-        if results and live:
-            paho.mqtt.publish.multiple(
-                results, hostname=MQTTHOST, auth=MQTTAUTH
-            )
-        else:
-            print(results)
-            # print(f"published {len(results)} records")
+        if results:
+            if live:
+                paho.mqtt.publish.multiple(results, hostname=mqtthost, auth=mqttauth)
+            else:
+                print(results)
+            results = []
         sleep(30)
 
 
-if len(sys.argv) > 1 and sys.argv[1] == "live":
-    main(True)
-else:
-    main(False)
+main(
+    live=bool(len(sys.argv) > 1 and sys.argv[1] == "live"),
+    hosts=(f"gs1900-10hp-{h}" for h in (1, 2, 3)),
+    domain=DOMAIN,
+    mqtthost=MQTTHOST,
+    mqttauth=MQTTAUTH,
+)

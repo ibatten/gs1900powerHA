@@ -1,10 +1,20 @@
 #!/bin/ksh
 
+user=daemon
+group=daemon
+bindir=/usr/local/bin
+cfdir=/usr/local/etc
+cf=${cfdir}/gs1900powerHA.cf
+
+
+service=gs1900powerHA.service
+
+
 sed -E 's/^(username|password)=.*/\1=XXX/;s/(\.[a-z]+){2,}/.DOM.AIN/' gs1900powerHA.cf > gs1900powerHA-dist.cf
-install -m 0755 -o daemon -g daemon gs1900powerHA.py /usr/local/bin
-install -m 0400 -o daemon -g daemon gs1900powerHA.cf /usr/local/etc
-install -m 0644 -o daemon -g daemon gs1900powerHA.service /etc/systemd/system
-systemctl enable gs1900powerHA.service
-systemctl start gs1900powerHA.service
+install -m 0755 -o ${user} -g ${group} gs1900powerHA.py ${bindir}
+[[ -s $cf ]] || install -m 0400 -o ${user} -g ${group} gs1900powerHA.cf ${cfdir}
+install -m 0644 -o ${user} -g ${group} gs1900powerHA.service /etc/systemd/system
+systemctl enable ${service}
+systemctl start ${service}
 
 

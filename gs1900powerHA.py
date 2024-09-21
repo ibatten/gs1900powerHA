@@ -286,6 +286,7 @@ def main():
 
         if results:
             if args.live:
+                debug_print (results)
                 paho.mqtt.publish.multiple(
                     results, hostname=cf["mqtt"]["host"], auth=mqttauth
                 )

@@ -1,0 +1,17 @@
+[Unit]
+Description=power monitoring for ethernet switches
+
+[Service]
+User=daemon
+WorkingDirectory=/tmp
+ExecStart=/usr/local/bin/gs1900powerHA.py --live --cf=/usr/local/etc/gs1900powerHA.cf
+
+# optional items below
+Restart=always
+RestartSec=30
+StandardInput=null
+StandardOutput=append:/tmp/getpower-log
+StandardError=append:/tmp/getpower-log
+
+[Install]
+WantedBy=multi-user.target

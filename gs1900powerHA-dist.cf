@@ -1,0 +1,20 @@
+[DEFAULT] 
+username=XXX
+password=XXX
+command=show power inline consumption
+ssh=ssh -o StrictHostKeyChecking=accept-new
+
+[global]
+sleep=30
+
+[mqtt]
+username=XXX
+password=XXX
+host=homeassistant.DOM.AIN
+
+[gs1900-10hp-1.DOM.AIN]
+
+[gs1900-10hp-2.DOM.AIN]
+
+[gs1900-10hp-3.DOM.AIN]
+

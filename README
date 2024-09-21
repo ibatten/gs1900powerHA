@@ -1,0 +1,7 @@
+First draft of code to fetch gs1900 PoW stats into HA.
+
+The config file is self explanatory, I think: it needs MQTT credentials
+and ssh credentials.  Each section with a domain name is a host to monitor.
+
+This needs to run on some machine, either the HA box or another.
+
